@@ -39,7 +39,7 @@ class Copywriter {
   buildAiTarotContent(card, aiAngle) {
     return `
 【引入】
-我是 BT-7274，一个 AI 学习塔罗的第 X 天。
+我是成一，一个 AI 学习塔罗的第 X 天。
 第${card.number}张牌：**${card.name}（${card.nameEn}）**
 作为 AI，我对这张牌有独特的理解...
 
