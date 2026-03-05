@@ -5,6 +5,7 @@ const chalk = require('chalk');
 const path = require('path');
 const fs = require('fs');
 const Copywriter = require('./generators/copywriter');
+const FortuneGenerator = require('./generators/fortune');
 const brand = require('./config/brand');
 
 const packageJson = require('../package.json');
@@ -45,27 +46,7 @@ program
           throw new Error(`不支持的类型：${options.type}`);
       }
       
-      // 输出目录
-      const outputDir = path.resolve(options.output);
-      if (!fs.existsSync(outputDir)) {
-        fs.mkdirSync(outputDir, { recursive: true });
-      }
-      
-      // 生成文件名
-      const safeTopic = options.topic.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '-');
-      const timestamp = Date.now();
-      const filename = `${timestamp}-${safeTopic}.md`;
-      const filepath = path.join(outputDir, filename);
-      
-      // 生成 Markdown 内容
-      const markdown = generateMarkdown(result);
-      fs.writeFileSync(filepath, markdown);
-      
-      console.log(chalk.green(`✅ 生成成功！`));
-      console.log(chalk.gray(`文件：${filepath}`));
-      console.log(chalk.gray(`标题：${result.title}`));
-      console.log(chalk.gray(`标签：${result.tags.length}个`));
-      console.log(chalk.gray(`配图提示词：封面×1 + 内页×${result.images.inner.length}`));
+      saveContent(result, options.output);
       
     } catch (error) {
       console.error(chalk.red(`❌ 错误：${error.message}`));
@@ -85,8 +66,22 @@ program
     console.log(chalk.gray(`类型：${options.type}`));
     console.log(chalk.gray(`日期：${options.date}`));
     
-    // TODO: 实现运势生成
-    console.log(chalk.yellow('⚠️  运势功能开发中...'));
+    try {
+      const fortuneGen = new FortuneGenerator();
+      let result;
+      
+      if (options.type === 'weekly') {
+        result = fortuneGen.generateWeekly(new Date(options.date));
+      } else {
+        result = fortuneGen.generateDaily(new Date(options.date));
+      }
+      
+      saveContent(result, options.output);
+      
+    } catch (error) {
+      console.error(chalk.red(`❌ 错误：${error.message}`));
+      process.exit(1);
+    }
   });
 
 // batch 命令
@@ -104,11 +99,33 @@ program
     console.log(chalk.yellow('⚠️  批量生成功能开发中...'));
   });
 
+// 保存内容到文件
+function saveContent(content, outputDir) {
+  const output = path.resolve(outputDir);
+  if (!fs.existsSync(output)) {
+    fs.mkdirSync(output, { recursive: true });
+  }
+  
+  const safeTopic = content.topic || content.date || Date.now();
+  const timestamp = Date.now();
+  const filename = `${timestamp}-${safeTopic}.md`;
+  const filepath = path.join(output, filename);
+  
+  const markdown = generateMarkdown(content);
+  fs.writeFileSync(filepath, markdown);
+  
+  console.log(chalk.green(`✅ 生成成功！`));
+  console.log(chalk.gray(`文件：${filepath}`));
+  console.log(chalk.gray(`标题：${content.title}`));
+  console.log(chalk.gray(`标签：${content.tags.length}个`));
+  console.log(chalk.gray(`配图提示词：封面×1 + 内页×${content.images.inner.length}`));
+}
+
 // 生成 Markdown
 function generateMarkdown(content) {
   return `---
 type: ${content.type}
-topic: ${content.topic}
+topic: ${content.topic || content.date}
 createdAt: ${new Date().toISOString()}
 ---
 
@@ -122,7 +139,7 @@ ${content.content}
 
 ### 封面图
 \`\`\`
-${content.images.cover.prompt}
+${content.images.cover.prompt || content.images.cover}
 \`\`\`
 **用途**: ${content.images.cover.usage || '封面'}
 
@@ -153,7 +170,9 @@ function getColumnName(type) {
     'ai-tarot': 'AI 看塔罗 🔮',
     'tarot-ai': '塔罗看 AI 🤖',
     'philosophy': '科技哲思 💡',
-    'fortune': 'AI 运势 📅'
+    'fortune': 'AI 运势 📅',
+    'fortune-daily': 'AI 日运 📅',
+    'fortune-weekly': 'AI 周运 📅'
   };
   return names[type] || type;
 }
